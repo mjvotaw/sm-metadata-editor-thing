@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sm-metadata-editor"
+version = "0.1.0"
+requires-python = ">=3.9"
+dependencies = [
+    "fuzzytrackmatch @ git+https://github.com/mjvotaw/fuzzytrackmatch@main",
+    "simfile>=2.0.0",
+    "PyQt6>=6.4.0",
+    "platformdirs==4.5.1",
+    "beautifulsoup4"
+
+]
+
+[project.scripts]
+sm-metadata-editor = "src.main:main"
+
+[tool.setuptools]
+packages = ["src"]
