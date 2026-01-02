@@ -5,6 +5,8 @@ from PyQt6.QtWidgets import (
     QGroupBox, QCheckBox, QLabel, QHeaderView, QMessageBox
 )
 
+from fuzzytrackmatch import GenreTag
+
 from src.controller import SimfileController
 from src.utils.config_manager import ConfigManager, ConfigEnum
 from .genre_search_thread import GenreSearchThread
@@ -189,8 +191,10 @@ class GenreNormalizationDialog(QDialog):
         self.progress_bar.setValue(current)
         self.progress_bar.setFormat(f"Searching: {title} ({current}/{total})")
 
-    def on_genre_found(self, row: int, genres: list[list[str]], initial_selection: str|None):
+    def on_genre_found(self, row: int, genres: list[list[GenreTag]]):
         """Update table when genres are found for a row."""
+
+        initial_selection = self._get_initial_genres_selection(genres)
         self.update_genre_options_for_row(row, genres, initial_selection)
     
     def on_no_genre_found(self, row: int):
@@ -203,6 +207,23 @@ class GenreNormalizationDialog(QDialog):
         self.replace_existing_checkbox.setEnabled(True)
         self.apply_button.setEnabled(True)  # Now allow applying changes
 
+    def _get_initial_genres_selection(self, genres: list[list[GenreTag]]) -> GenreTag|None:
+        # find the most specific genre with the highest score
+        best_genre = None
+        best_score = 0
+        best_depth = 0
+        for group in genres:
+            group_reversed = group.copy()
+            group_reversed.reverse()
+            depth = 0
+            for genre in group_reversed:
+                depth += 1
+                if genre.score >= best_score and depth >= best_depth:
+                    best_score = genre.score
+                    best_genre = genre
+                    best_depth = depth
+        
+        return best_genre
     # 
     @pyqtSlot()
     def on_apply_clicked(self):
@@ -240,7 +261,7 @@ class GenreNormalizationDialog(QDialog):
         # Close dialog
         self.accept()
 
-    def update_genre_options_for_row(self, row: int, possible_genres: list[list[str]], initial_selection: str|None):
+    def update_genre_options_for_row(self, row: int, possible_genres: list[list[GenreTag]], initial_selection: GenreTag|None):
         """
         Update the dropdown for a specific row with search results.
         
@@ -266,7 +287,7 @@ class GenreNormalizationDialog(QDialog):
         idx = 0
         for display_text, actual_value, depth in items:
             genre_combo.addItem(display_text, userData=actual_value)
-            if initial_selection is not None and initial_selection == actual_value:
+            if initial_selection is not None and initial_selection.name == actual_value:
                 
                 genre_combo.setCurrentIndex(idx)
             idx = idx + 1
@@ -284,16 +305,16 @@ class GenreNormalizationDialog(QDialog):
         genre_combo.addItem("(no results found)")
 
     
-    def build_genre_tree(self, genre_paths: list[list[str]]) -> dict:
+    def build_genre_tree(self, genre_paths: list[list[GenreTag]]) -> dict:
         """Build tree structure from genre paths."""
         tree = {}
         for path in genre_paths:
             current_level = tree
             path.reverse()
             for genre in path:
-                if genre not in current_level:
-                    current_level[genre] = {}
-                current_level = current_level[genre]
+                if genre.name not in current_level:
+                    current_level[genre.name] = {}
+                current_level = current_level[genre.name]
         return tree
 
     def flatten_tree_for_display(self, tree: dict, depth: int = 0) -> list[tuple[str, str, int]]:

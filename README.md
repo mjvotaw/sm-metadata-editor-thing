@@ -24,6 +24,11 @@ You can run it by calling `sm-metadata-editor`
 - Edit audio preview
 - Search for song genres based on data from last.fm, discogs, and animethemes.moe (add api keys in `Settings` menu)
 
+
+### Todos:
+- song preview playback on linux is broken
+- fix styling issues when dark theme is enabled by OS
+
 ### Got other ideas for what this should do?
 
 I built this to solve a slightly specific issue for myself, but if you've got suggestions for other features, let me know! Open an issue or discussion or something.

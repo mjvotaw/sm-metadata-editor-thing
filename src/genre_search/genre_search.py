@@ -1,5 +1,5 @@
 from .models import SearchOptions
-from fuzzytrackmatch import LastFMSearch, DiscogsSearch, BaseGenreSearch
+from fuzzytrackmatch import LastFMSearch, DiscogsSearch, BaseGenreSearch, GenreTag
 from .last_fm_scraper import LastFmScraper
 from .anime_themes_search import AnimeThemesSearch
 import json
@@ -12,7 +12,7 @@ class GenreSearch:
 
   def __init__(self, options: SearchOptions):
     self.options = options
-    self.cache:dict[str, dict[str,list[list[str]]]] = {}
+    self.cache:dict[str, dict[str,list[list[GenreTag]]]] = {}
     self.cache_file = options.cache_file
     self.search_order: list[str] = []
     self.searchers:dict[str, BaseGenreSearch] = {}
@@ -22,10 +22,10 @@ class GenreSearch:
     self._setup_searchers(options)
     
 
-  def get_genres(self, artist: str, title: str, subtitle: str|None):
+  def get_genres(self, artist: str, title: str, subtitle: str|None) -> list[list[GenreTag]]:
     # Create a cache key from the search parameters
     cache_key = f"{artist}|{title}|{subtitle or ''}"
-    genres: list[list[str]] = []
+    genres: list[list[GenreTag]] = []
     # Search through available searchers
     for search_option in self.search_order:
       logger.debug(f"{search_option}| starting search")
@@ -49,7 +49,7 @@ class GenreSearch:
           returned_genres = track_and_genres.canonicalized_genres
           if search_option == "animethemes"and len(track_and_genres.genres) > 0:
             # animethemes doesn't really return a "canonical" genre, so use whatever GenreTag was returned
-            returned_genres = [[track_and_genres.genres[0].name]]
+            returned_genres = [[track_and_genres.genres[0]]]
           
           genres += returned_genres          
           self._add_to_cache(cache_key, genres, search_option)
@@ -62,7 +62,6 @@ class GenreSearch:
 
     self._save_cache()
     return genres
-    return []
 
 
   def _setup_searchers(self, options: SearchOptions):
@@ -84,7 +83,7 @@ class GenreSearch:
       return self.cache[cache_key][source]
     return None
   
-  def _add_to_cache(self, cache_key: str, genres: list[list[str]], source: str):
+  def _add_to_cache(self, cache_key: str, genres: list[list[GenreTag]], source: str):
     if cache_key not in self.cache:
       self.cache[cache_key] = {}
     
@@ -96,10 +95,31 @@ class GenreSearch:
       if cache_path.exists():
         try:
           with open(cache_path) as f:
-            self.cache = json.load(f)
+            loaded_cache = json.load(f)
+            rebuilt_cache: dict[str, dict[str, list[list[GenreTag]]]] = {}
+
+            for cache_key, obj in loaded_cache.items():
+              rebuilt_cache[cache_key] = {}
+              for source, genre_groups in obj.items():
+                rebuilt_cache[cache_key][source] = []
+                for genres in genre_groups:
+                  genre_tags = [GenreTag.from_dict(g) for g in genres]
+                  rebuilt_cache[cache_key][source].append(genre_tags)
+            
+            self.cache = rebuilt_cache
         except Exception as e:
           print(f"Warning: Failed to load cache file {self.cache_file}: {e}")
 
+  def _cache_as_dicts(self, cache: dict[str, dict[str,list[list[GenreTag]]]]):
+    cache_as_dicts: dict[str, dict[str,list[list[dict]]]] = {}
+    for cache_key, obj in cache.items():
+      cache_as_dicts[cache_key] = {}
+      for source, genre_groups in obj.items():
+        cache_as_dicts[cache_key][source] = []
+        for genres in genre_groups:
+          genre_tags = [g.__dict__ for g in genres]
+          cache_as_dicts[cache_key][source].append(genre_tags)
+    return cache_as_dicts
   def _save_cache(self):
     """Save the cache to disk if a cache file is configured."""
     if self.cache_file:
@@ -107,7 +127,8 @@ class GenreSearch:
         cache_path = Path(self.cache_file)
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         with open(cache_path, 'w') as f:
-          json.dump(self.cache, f, indent=2)
+          cache_as_dicts = self._cache_as_dicts(self.cache)
+          json.dump(cache_as_dicts, f, indent=2)
       except Exception as e:
-        print(f"Warning: Failed to save cache file {self.cache_file}: {e}")
+        print(f"Warning: Failed to save cache file '{self.cache_file}': {e}")
       

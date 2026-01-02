@@ -8,13 +8,15 @@ from .genre_pick import pick_genre
 from .genre_search import GenreSearch
 from .models import SearchOptions
 from src.utils.logger import get_logger
+from fuzzytrackmatch import GenreTag
+
 logger = get_logger(__name__)
 
 class GenreSearchThread(QThread):
     """Background thread for searching genres."""
     
     progress_update = pyqtSignal(int, int, str)  # current, total, title
-    genre_found = pyqtSignal(int, list, str)  # row_index, possible_genres, initial_selection
+    genre_found = pyqtSignal(int, list)  # row_index, possible_genres list[list[GenreTag]]
     no_genre_found = pyqtSignal(int) #row_index
     search_complete = pyqtSignal()
     
@@ -59,19 +61,18 @@ class GenreSearchThread(QThread):
             result = self._search_genre(artist, title, subtitle)
             
             if result is not None:
-                self.genre_found.emit(idx, result[0], result[1])
+                self.genre_found.emit(idx, result)
             else:
                 self.no_genre_found.emit(idx)
-        
+        logger.debug(f"Finished search.")
         self.search_complete.emit()
     
-    def _search_genre(self,artist: str, title: str, subtitle: str) -> Tuple[list[list[str]], str] | None:
+    def _search_genre(self,artist: str, title: str, subtitle: str) -> list[list[GenreTag]] | None:
         logger.debug(f"starting search for {artist} {title} {subtitle}")
         genres = self.genre_search.get_genres(artist, title, subtitle)
         logger.debug(f"genres for {artist} {title} {subtitle}: {genres}")
         if len(genres) == 0:
             return None
-        selected_genre = pick_genre(genres)
-        return genres, selected_genre
+        return genres
 
         

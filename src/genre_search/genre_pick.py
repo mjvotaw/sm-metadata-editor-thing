@@ -1,5 +1,6 @@
+from fuzzytrackmatch import GenreTag
 
-def pick_genre(canonicalized_genres: list[list[str]]):
+def pick_genre(canonicalized_genres: list[list[GenreTag]]):
   """Do a bunch of stuff to figure out the most appropriate
   genre. This is a pretty subjective job.
   """
