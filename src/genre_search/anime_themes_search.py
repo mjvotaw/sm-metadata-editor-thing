@@ -13,7 +13,7 @@ class AnimeThemesSearch(BaseGenreSearch[AnimeTheme, Artist]):
   def _perform_artist_search(self, artists: list[str]) -> list[BasicArtistInfo[Artist]]:
     return []
   
-  def _perform_track_search(self, artist: list[str], title: str) -> list[BasicTrackInfo[AnimeTheme]]:
+  def _perform_track_search(self, artist: list[str], title: str, previous_tracks: list[BasicTrackInfo[AnimeTheme]]) -> list[BasicTrackInfo[AnimeTheme]]:
     query = f"{title} {artist[0]}"
     result = self._search_for_anime_themes(query)
     track_infos = self._find_matching_anime_themes(artist, title, result)

@@ -149,11 +149,15 @@ class GenreNormalizationDialog(QDialog):
         layout.addWidget(self.apply_button)
         
         self.cancel_button = QPushButton("Cancel")
-        self.cancel_button.clicked.connect(self.reject)
+        self.cancel_button.clicked.connect(self.on_cancel)
         layout.addWidget(self.cancel_button)
         
         return layout
     
+    @pyqtSlot()
+    def on_cancel(self):
+        self.search_thread.cancel()
+        self.reject()
     # Genre Search
 
     @pyqtSlot()

@@ -7,6 +7,8 @@ from src.utils.sm_utils import strip_common_sm_words
 from .genre_pick import pick_genre
 from .genre_search import GenreSearch
 from .models import SearchOptions
+from src.utils.logger import get_logger
+logger = get_logger(__name__)
 
 class GenreSearchThread(QThread):
     """Background thread for searching genres."""
@@ -20,6 +22,7 @@ class GenreSearchThread(QThread):
         super().__init__()
         self.simfiles = simfiles
         self.config = ConfigManager()
+        # move animethemes.moe to the end, it's a last resort option
         if "animethemes" in search_sources:
             search_sources.remove("animethemes")
             search_sources.append("animethemes")
@@ -45,6 +48,7 @@ class GenreSearchThread(QThread):
         
         for idx, simfile in enumerate(self.simfiles):
             if self._cancelled:
+                logger.debug("search cancelled, breaking out of loop")
                 break
             
             self.progress_update.emit(idx + 1, total, simfile.title)
@@ -62,9 +66,9 @@ class GenreSearchThread(QThread):
         self.search_complete.emit()
     
     def _search_genre(self,artist: str, title: str, subtitle: str) -> Tuple[list[list[str]], str] | None:
-        
+        logger.debug(f"starting search for {artist} {title} {subtitle}")
         genres = self.genre_search.get_genres(artist, title, subtitle)
-        print(f"genres for {artist} {title} {subtitle}: {genres}")
+        logger.debug(f"genres for {artist} {title} {subtitle}: {genres}")
         if len(genres) == 0:
             return None
         selected_genre = pick_genre(genres)

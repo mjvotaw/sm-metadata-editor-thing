@@ -25,33 +25,43 @@ class GenreSearch:
   def get_genres(self, artist: str, title: str, subtitle: str|None):
     # Create a cache key from the search parameters
     cache_key = f"{artist}|{title}|{subtitle or ''}"
-    
+    genres: list[list[str]] = []
     # Search through available searchers
     for search_option in self.search_order:
+      logger.debug(f"{search_option}| starting search")
       cached_genres = self._get_from_cache(cache_key, search_option)
       if cached_genres is not None:
         if len(cached_genres) > 0:
-          return cached_genres
-        else:
-          continue
-
+          genres += cached_genres
+        continue
+      
       searcher = self.searchers[search_option]
-      track_and_genres = searcher.fetch_track_genres(artist, title, subtitle)
-      if track_and_genres:
-        logger.debug(f"{search_option}| track returned for {artist} {title} {subtitle}: {track_and_genres.track}")
-        # Cache the result
-        genres = track_and_genres.canonicalized_genres
-        if search_option == "animethemes":
-          # animethemes doesn't really return a "canonical" genre, so use whatever GenreTag was returned
-          genres = [[track_and_genres.genres[0].name]]
-        
-        self._add_to_cache(cache_key, genres, search_option)
-        self._save_cache()
-        return genres
-      else:
-        logger.debug(f"{search_option}| no track returned for {artist} {title} {subtitle}")
-        self._add_to_cache(cache_key, [], search_option)
+      # for animethemes.moe, skip it if we've already got results from a previous
+      # search option (animethemes.moe is kind of a last resort)
+      if search_option == "animethemes" and len(genres) > 0:
+        continue
+      try:
+        track_and_genres = searcher.fetch_track_genres(artist, title, subtitle)
+        if track_and_genres:
+          logger.debug(f"{search_option}| track returned for {artist} {title} {subtitle}: {track_and_genres.track}")
+          # Cache the result
+          
+          returned_genres = track_and_genres.canonicalized_genres
+          if search_option == "animethemes"and len(track_and_genres.genres) > 0:
+            # animethemes doesn't really return a "canonical" genre, so use whatever GenreTag was returned
+            returned_genres = [[track_and_genres.genres[0].name]]
+          
+          genres += returned_genres          
+          self._add_to_cache(cache_key, genres, search_option)
+          self._save_cache()
+        else:
+          logger.debug(f"{search_option}| no track returned for {artist} {title} {subtitle}")
+          self._add_to_cache(cache_key, [], search_option)
+      except Exception as e:
+        logger.debug(f"{search_option} error thrown while trying to get genre data for {artist} {title} {subtitle}: {e}")
+
     self._save_cache()
+    return genres
     return []
 
 

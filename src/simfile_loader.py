@@ -109,10 +109,12 @@ class SimfileLoader:
             for field_def in FieldRegistry.get_all_fields():
                 if not metadata.is_field_editable(field_def.internal_name):
                     continue
-                
                 value = getattr(metadata, field_def.internal_name, "")
                 if field_def.field_type.isFilePath() and value != "":
                     prev_value = metadata.get_original_value(field_def.internal_name)
+                    if prev_value == value:
+                        # skipping field, value didn't change
+                        continue
                     if prev_value is not None:
                         # TODO: ask if we want to delete/overwrite this file
                         pass
@@ -151,7 +153,10 @@ class SimfileLoader:
             return relative_asset_filepath
         # or is it within the simfile pack dir?
         elif asset_path.parent == simfile_dir.parent:
-            relative_asset_filepath = str(asset_path.relative_to(simfile_dir, walk_up=True))
+            # TODO: This does NOT WORK! This ends up throwing an exception
+            # because asset_path isn't within simfile_dir. I've gotta figure
+            # out a different way to getting the relative path
+            relative_asset_filepath = str(asset_path.relative_to(simfile_dir))
             return relative_asset_filepath
         
         # if not, then we need to copy it to the simfile_dir
