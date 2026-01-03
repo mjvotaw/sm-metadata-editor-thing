@@ -11,7 +11,7 @@ from src.models import SimfileMetadata, PackInfo, SimfileChange
 from src.field_registry import FieldType, FieldRegistry
 from src.change_manager import ChangeManager, ChangeCommand
 from src.simfile_loader import SimfileLoader
-
+from src.utils.config_manager import ConfigManager, ConfigEnum
 
 class SimfileController:
     """
@@ -30,7 +30,7 @@ class SimfileController:
         self._parsed_simfiles: Dict[str, Any] = {}  # simfile_id -> Simfile object
         
         self._change_manager = ChangeManager()
-        
+        self.config = ConfigManager()
         # Selection state (useful for bulk operations)
         self._selected_ids: Set[str] = set()
         
@@ -238,7 +238,8 @@ class SimfileController:
         """
         results = {}
         modified = self.get_modified_simfiles()
-        
+        save_backups = self.config.get(ConfigEnum.SAVE_BACKUP, False)
+
         for simfile in modified:
             try:
                 parsed_simfile = self._parsed_simfiles.get(simfile.id)
@@ -246,7 +247,7 @@ class SimfileController:
                     results[simfile.id] = False
                     continue
                 
-                success = SimfileLoader.save_simfile(simfile, parsed_simfile)
+                success = SimfileLoader.save_simfile(simfile, parsed_simfile, create_backup=save_backups)
                 results[simfile.id] = success
                 
                 if success:

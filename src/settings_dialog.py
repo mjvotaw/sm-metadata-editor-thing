@@ -69,6 +69,10 @@ class SettingsDialog(QDialog):
         form_layout.addRow("Discogs API key", discogs_api_key_field)
         self.fields[ConfigEnum.DISCOGS_API_KEY] = discogs_api_key_field
         
+        save_backups_checkbox = QCheckBox()
+        form_layout.addRow("Create Backups when saving changes", save_backups_checkbox)
+        self.fields[ConfigEnum.SAVE_BACKUP] = save_backups_checkbox
+        
         self.set_values(self.config.get_values())
 
     def get_values(self) -> Dict[str, Any]:

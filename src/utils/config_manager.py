@@ -16,6 +16,10 @@ class ConfigEnum:
     LASTFM_API_KEY = 'lastfm_api_key'
     DISCOGS_API_KEY = 'discogs_api_key'
     SIMILARITY_THRESH = 'similarity_threshold'
+
+    # Save options
+
+    SAVE_BACKUP = 'save_backup'
     
 class ConfigManager(object):
     """
@@ -26,6 +30,8 @@ class ConfigManager(object):
         ConfigEnum.VERSION: '0.1',
         ConfigEnum.LAST_DIR: '',
         ConfigEnum.LOG_LEVEL: 'INFO',
+        ConfigEnum.SIMILARITY_THRESH: 0.65,
+        ConfigEnum.SAVE_BACKUP: True,
     }
 
     def __new__(cls) -> Self:

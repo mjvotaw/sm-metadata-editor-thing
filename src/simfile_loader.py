@@ -99,7 +99,7 @@ class SimfileLoader:
         return metadata
     
     @staticmethod
-    def save_simfile(metadata: SimfileMetadata, parsed_simfile: Simfile) -> bool:
+    def save_simfile(metadata: SimfileMetadata, parsed_simfile: Simfile, create_backup:bool=False) -> bool:
         """
         Save changes from metadata back to the simfile and write to disk.
         Returns True if successful.
@@ -123,7 +123,9 @@ class SimfileLoader:
                     if value is None:
                         continue
                 setattr(parsed_simfile, field_def.internal_name.lower(), value)
-            
+            if create_backup:
+                SimfileLoader._create_backup_file(metadata.file_path)
+                
             with open(metadata.file_path, 'w', encoding='utf-8') as f:
                 parsed_simfile.serialize(f)
             
@@ -169,5 +171,15 @@ class SimfileLoader:
                 return relative_asset_filepath
             except Exception as e:
                 return None
+    
+    @staticmethod
+    def _create_backup_file(original_filepath: Path):
+        if original_filepath.exists() == False or original_filepath.is_file() == False:
+            return
+        
+        new_suffix = original_filepath.suffix + ".bak"
+        backup_filepath = original_filepath.with_suffix(new_suffix)
+        shutil.copyfile(original_filepath, backup_filepath)
+
 
             
