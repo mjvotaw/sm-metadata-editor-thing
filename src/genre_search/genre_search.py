@@ -1,5 +1,6 @@
 from .models import SearchOptions
 from fuzzytrackmatch import LastFMSearch, DiscogsSearch, BaseGenreSearch, GenreTag
+from fuzzytrackmatch.genre_whitelist import GenreWhitelist
 from .last_fm_scraper import LastFmScraper
 from .anime_themes_search import AnimeThemesSearch
 import json
@@ -18,6 +19,7 @@ class GenreSearch:
         self.cache_file = options.cache_file
         self.search_order: list[str] = []
         self.searchers: dict[str, BaseGenreSearch] = {}
+        self.wl = GenreWhitelist()
 
         self._load_cache()
 
@@ -75,8 +77,14 @@ class GenreSearch:
         self._save_cache()
         return genres
 
+    def normalize_genre(self, genre: str):
+        resolved_genre = self.wl.resolve_genre(genre)
+        if len(resolved_genre) == 0:
+            return None
+        return resolved_genre
+
     def _setup_searchers(self, options: SearchOptions):
-        self.search_order = options.api_search_order or ["lastfm", "discogs"]
+        self.search_order = options.api_search_order or []
         for search in self.search_order:
             if search == "lastfm":
                 if options.lastfm_api_key:

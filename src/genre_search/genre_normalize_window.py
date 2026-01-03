@@ -75,6 +75,11 @@ class GenreNormalizationDialog(QDialog):
         self.search_options = self._setup_search_api_options()
         for k, option in self.search_options.items():
             layout.addWidget(option)
+
+        self.audio_tags_checkbox = QCheckBox("Check audio file metadata")
+        self.audio_tags_checkbox.setToolTip("Check the simfile's audio file for title, artist, and genre info, and use that info in searching sa well")
+        layout.addWidget(self.audio_tags_checkbox)
+
         
         group.setLayout(layout)
         return group
@@ -168,7 +173,8 @@ class GenreNormalizationDialog(QDialog):
     
     @pyqtSlot()
     def on_cancel(self):
-        self.search_thread.cancel()
+        if self.search_thread:
+            self.search_thread.cancel()
         self.reject()
     # Genre Search
 
@@ -188,7 +194,7 @@ class GenreNormalizationDialog(QDialog):
                 sources.append(k)
         
         # Create and start search thread
-        self.search_thread = GenreSearchThread(self.simfiles, sources)
+        self.search_thread = GenreSearchThread(self.simfiles, sources, self.audio_tags_checkbox.isChecked())
         self.search_thread.progress_update.connect(self.on_search_progress)
         self.search_thread.genres_found.connect(self.on_genre_found)
         self.search_thread.no_genre_found.connect(self.on_no_genre_found)

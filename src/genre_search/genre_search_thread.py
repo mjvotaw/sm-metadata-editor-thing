@@ -1,5 +1,7 @@
 from typing import Set, Tuple
 from PyQt6.QtCore import pyqtSignal, QThread
+from pathlib import Path
+from mutagen import File
 from src.models import SimfileMetadata
 from src.utils.app_paths import AppPaths
 from src.utils.config_manager import ConfigManager, ConfigEnum
@@ -9,6 +11,7 @@ from .genre_search import GenreSearch
 from .models import SearchOptions
 from src.utils.logger import get_logger
 from fuzzytrackmatch import GenreTag
+from src.models.audio_metadata import AudioMetadata
 
 logger = get_logger(__name__)
 
@@ -20,15 +23,16 @@ class GenreSearchThread(QThread):
     no_genre_found = pyqtSignal(int) #row_index
     search_complete = pyqtSignal()
     
-    def __init__(self, simfiles: list[SimfileMetadata], search_sources: list[str]):
+    def __init__(self, simfiles: list[SimfileMetadata], api_search_sources: list[str], check_audio_files:bool=False):
         super().__init__()
         self.simfiles = simfiles
         self.config = ConfigManager()
         # move animethemes.moe to the end, it's a last resort option
-        if "animethemes" in search_sources:
-            search_sources.remove("animethemes")
-            search_sources.append("animethemes")
-        self.search_sources = search_sources
+        if "animethemes" in api_search_sources:
+            api_search_sources.remove("animethemes")
+            api_search_sources.append("animethemes")
+        self.search_sources = api_search_sources
+        self.check_audio_files = check_audio_files
         self._setup_genre_search()
         self._cancelled = False
     
@@ -55,26 +59,7 @@ class GenreSearchThread(QThread):
                 break
             
             self.progress_update.emit(idx + 1, total, simfile.title)
-            
-            artist = simfile.artist
-            title = strip_common_sm_words(simfile.title)
-            subtitle = strip_common_sm_words(simfile.subtitle)
-            result = self._search_genre(artist, title, subtitle)
-            
-            # if the simfile has translit title or artist, search with those as well,
-            # and merge the results
-            if simfile.artisttranslit or simfile.titletranslit:
-                artist = strip_common_sm_words(simfile.artisttranslit or simfile.artist)
-                title = strip_common_sm_words(simfile.titletranslit or simfile.title)
-                subtitle = strip_common_sm_words(simfile.subtitletranslit or simfile.subtitle)
-                result_translit = self._search_genre(artist, title, subtitle)
-
-                if result_translit is not None:
-                    if result is None:
-                        result = result_translit
-                    else:
-                        result = result + result_translit
-
+            result = self._do_search_for_simfile(simfile)
             if result is not None:
                 self.genres_found.emit(idx, result)
             else:
@@ -82,6 +67,50 @@ class GenreSearchThread(QThread):
         logger.debug(f"Finished search.")
         self.search_complete.emit()
     
+    def _do_search_for_simfile(self, simfile: SimfileMetadata):
+
+        result: list[list[GenreTag]] = []
+        artist = simfile.artist
+        title = strip_common_sm_words(simfile.title)
+        subtitle = strip_common_sm_words(simfile.subtitle)
+        normal_results = self._search_genre(artist, title, subtitle)
+        if normal_results:
+            result += normal_results
+        
+        # if the simfile has translit title or artist, search with those as well,
+        # and merge the results
+        if simfile.artisttranslit or simfile.titletranslit:
+            artist = strip_common_sm_words(simfile.artisttranslit or simfile.artist)
+            title = strip_common_sm_words(simfile.titletranslit or simfile.title)
+            subtitle = strip_common_sm_words(simfile.subtitletranslit or simfile.subtitle)
+            result_translit = self._search_genre(artist, title, subtitle)
+
+            if result_translit is not None:
+                result += result_translit
+
+        # sometimes the audio file has useful tags that we can pull info from
+        if self.check_audio_files and simfile.music:
+            audio_metadata = AudioMetadata.from_audio_file(simfile.music)
+
+            if audio_metadata is not None:
+                if audio_metadata.artist and audio_metadata.title:
+                    audio_result = self._search_genre(audio_metadata.artist, audio_metadata.title, "")
+                    if audio_result is not None:
+                        if result is None:
+                            result = audio_result
+                        else:
+                            result = result + audio_result
+                
+                if audio_metadata.genre:
+                    maybe_genre = self.genre_search.normalize_genre(audio_metadata.genre)
+                    if maybe_genre:
+                        result += maybe_genre
+
+        if len(result) == 0:
+            return None
+        return result
+    
+
     def _search_genre(self,artist: str, title: str, subtitle: str) -> list[list[GenreTag]] | None:
         logger.debug(f"starting search for {artist} {title} {subtitle}")
         genres = self.genre_search.get_genres(artist, title, subtitle)
