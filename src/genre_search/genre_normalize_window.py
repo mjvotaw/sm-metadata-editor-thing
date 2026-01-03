@@ -224,6 +224,9 @@ class GenreNormalizationDialog(QDialog):
             group_reversed.reverse()
             depth = 0
             for genre in group_reversed:
+                # nobody wants "Dance" as a genre, that's basically useless
+                if genre.name == "Dance":
+                    continue
                 depth += 1
                 if genre.score > best_score or (genre.score == best_score and depth >= best_depth):
                     best_score = genre.score
