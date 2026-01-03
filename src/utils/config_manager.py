@@ -12,9 +12,11 @@ class ConfigEnum:
     WINDOW_SIZE = 'window_size'
     WINDOW_POSITION = 'window_position'
 
+    # Genre search options
     LASTFM_API_KEY = 'lastfm_api_key'
     DISCOGS_API_KEY = 'discogs_api_key'
-
+    SIMILARITY_THRESH = 'similarity_threshold'
+    
 class ConfigManager(object):
     """
     Singleton class that manages loading/saving application configuration settings

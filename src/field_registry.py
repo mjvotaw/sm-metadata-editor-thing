@@ -146,7 +146,7 @@ class FieldRegistry:
             display_name='Title (Romanized)',
             field_type=FieldType.TEXT,
             supported_formats=SM_AND_SSC,
-            description='Romanized/transliterated title',
+            description='transliterated title',
             placeholder='Romanized title'
         ),
         FieldDefinition(
@@ -154,7 +154,7 @@ class FieldRegistry:
             display_name='Subtitle (Romanized)',
             field_type=FieldType.TEXT,
             supported_formats=SM_AND_SSC,
-            description='Romanized/transliterated subtitle',
+            description='transliterated subtitle',
             placeholder='Romanized subtitle'
         ),
         FieldDefinition(
@@ -162,7 +162,7 @@ class FieldRegistry:
             display_name='Artist (Romanized)',
             field_type=FieldType.TEXT,
             supported_formats=SM_AND_SSC,
-            description='Romanized/transliterated artist name',
+            description='transliterated artist name',
             placeholder='Romanized artist'
         ),
     ]

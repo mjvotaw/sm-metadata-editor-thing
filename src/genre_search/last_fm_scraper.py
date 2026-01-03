@@ -24,7 +24,7 @@ class LastFmScraper(LastFMSearch):
     section = soup.find("section", class_="catalogue-tags")
     if section:
       tags = section.find_all("li")
-      tag_texts: list[GenreTag] = [GenreTag(name=tag.text.strip(), score=0) for tag in tags]
+      tag_texts: list[GenreTag] = [GenreTag(name=tag.text.strip(), score=1) for tag in tags]
       return tag_texts
     
     return []

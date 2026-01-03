@@ -16,7 +16,7 @@ class GenreSearchThread(QThread):
     """Background thread for searching genres."""
     
     progress_update = pyqtSignal(int, int, str)  # current, total, title
-    genre_found = pyqtSignal(int, list)  # row_index, possible_genres list[list[GenreTag]]
+    genres_found = pyqtSignal(int, list)  # row_index, possible_genres list[list[GenreTag]]
     no_genre_found = pyqtSignal(int) #row_index
     search_complete = pyqtSignal()
     
@@ -36,9 +36,10 @@ class GenreSearchThread(QThread):
     def _setup_genre_search(self):
         lastfm_api_key = self.config.get(ConfigEnum.LASTFM_API_KEY)
         discogs_api_key = self.config.get(ConfigEnum.DISCOGS_API_KEY)
+        similarity_threshold = self.config.get(ConfigEnum.SIMILARITY_THRESH, default=0.65)
         cache_file = (AppPaths.config_dir() / "genre_cache.json").absolute()
 
-        search_options = SearchOptions(lastfm_api_key=lastfm_api_key, discogs_api_key=discogs_api_key, api_search_order=self.search_sources, cache_file=str(cache_file))
+        search_options = SearchOptions(lastfm_api_key=lastfm_api_key, discogs_api_key=discogs_api_key, api_search_order=self.search_sources, cache_file=str(cache_file), similarity_threshold=similarity_threshold)
 
         self.genre_search = GenreSearch(search_options)
 
@@ -60,8 +61,22 @@ class GenreSearchThread(QThread):
             subtitle = strip_common_sm_words(simfile.subtitle)
             result = self._search_genre(artist, title, subtitle)
             
+            # if the simfile has translit title or artist, search with those as well,
+            # and merge the results
+            if simfile.artisttranslit or simfile.titletranslit:
+                artist = strip_common_sm_words(simfile.artisttranslit or simfile.artist)
+                title = strip_common_sm_words(simfile.titletranslit or simfile.title)
+                subtitle = strip_common_sm_words(simfile.subtitletranslit or simfile.subtitle)
+                result_translit = self._search_genre(artist, title, subtitle)
+
+                if result_translit is not None:
+                    if result is None:
+                        result = result_translit
+                    else:
+                        result = result + result_translit
+
             if result is not None:
-                self.genre_found.emit(idx, result)
+                self.genres_found.emit(idx, result)
             else:
                 self.no_genre_found.emit(idx)
         logger.debug(f"Finished search.")
@@ -74,5 +89,7 @@ class GenreSearchThread(QThread):
         if len(genres) == 0:
             return None
         return genres
+    
+
 
         

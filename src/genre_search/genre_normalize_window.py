@@ -2,7 +2,8 @@ from PyQt6.QtCore import Qt, pyqtSlot
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QTableWidget, 
     QTableWidgetItem, QPushButton, QProgressBar, QComboBox,
-    QGroupBox, QCheckBox, QLabel, QHeaderView, QMessageBox
+    QGroupBox, QCheckBox, QLabel, QHeaderView, QMessageBox,
+    QStyleFactory
 )
 
 from fuzzytrackmatch import GenreTag
@@ -10,6 +11,7 @@ from fuzzytrackmatch import GenreTag
 from src.controller import SimfileController
 from src.utils.config_manager import ConfigManager, ConfigEnum
 from .genre_search_thread import GenreSearchThread
+from src.ignore_wheel_filter import IgnoreWheelFilter
 
 class GenreNormalizationDialog(QDialog):
 
@@ -22,6 +24,7 @@ class GenreNormalizationDialog(QDialog):
         self.setWindowTitle("Search/Normalize Genres")
         self.resize(800, 600)
         
+        self.ignore_wheel_filter = IgnoreWheelFilter(self)
         self.setup_ui()
     
     def setup_ui(self):
@@ -37,6 +40,9 @@ class GenreNormalizationDialog(QDialog):
         
         # Progress bar (hidden initially)
         self.progress_bar = QProgressBar()
+        self.progress_bar.setStyle(QStyleFactory.create('Fusion'))
+
+
         self.progress_bar.setVisible(False)
         layout.addWidget(self.progress_bar)
         
@@ -123,6 +129,7 @@ class GenreNormalizationDialog(QDialog):
             
             # New genre - this will be a dropdown
             genre_combo = QComboBox()
+            genre_combo.installEventFilter(self.ignore_wheel_filter)
             genre_combo.addItem("(searching...)")
             genre_combo.setEnabled(False)
             table.setCellWidget(row, 3, genre_combo)
@@ -180,7 +187,7 @@ class GenreNormalizationDialog(QDialog):
         # Create and start search thread
         self.search_thread = GenreSearchThread(self.simfiles, sources)
         self.search_thread.progress_update.connect(self.on_search_progress)
-        self.search_thread.genre_found.connect(self.on_genre_found)
+        self.search_thread.genres_found.connect(self.on_genre_found)
         self.search_thread.no_genre_found.connect(self.on_no_genre_found)
         self.search_thread.search_complete.connect(self.on_search_complete)
         self.search_thread.start()
@@ -218,7 +225,7 @@ class GenreNormalizationDialog(QDialog):
             depth = 0
             for genre in group_reversed:
                 depth += 1
-                if genre.score >= best_score and depth >= best_depth:
+                if genre.score > best_score or (genre.score == best_score and depth >= best_depth):
                     best_score = genre.score
                     best_genre = genre
                     best_depth = depth

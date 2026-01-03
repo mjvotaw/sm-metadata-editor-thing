@@ -9,6 +9,7 @@ strip_strings = [
     "(No CMOD)",
     "(Hard)",
     "(Medium)",
+    "(Easy)",
     "(Beginner)",
 ]
     
