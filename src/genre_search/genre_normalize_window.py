@@ -12,6 +12,9 @@ from src.controller import SimfileController
 from src.utils.config_manager import ConfigManager, ConfigEnum
 from .genre_search_thread import GenreSearchThread
 from src.ignore_wheel_filter import IgnoreWheelFilter
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 class GenreNormalizationDialog(QDialog):
 
@@ -325,6 +328,7 @@ class GenreNormalizationDialog(QDialog):
                 if genre.name not in current_level:
                     current_level[genre.name] = {}
                 current_level = current_level[genre.name]
+        logger.debug(tree)
         return tree
 
     def flatten_tree_for_display(self, tree: dict, depth: int = 0) -> list[tuple[str, str, int]]:

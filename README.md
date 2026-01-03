@@ -27,7 +27,9 @@ You can run it by calling `sm-metadata-editor`
 
 ### Todos:
 - song preview playback on linux is broken
+- test stuff on Windows
 - fix styling issues when dark theme is enabled by OS
+- figure out a way to set preferences for genre selection
 
 ### Got other ideas for what this should do?
 
