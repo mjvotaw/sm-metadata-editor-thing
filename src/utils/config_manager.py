@@ -12,6 +12,11 @@ class ConfigEnum:
     WINDOW_SIZE = 'window_size'
     WINDOW_POSITION = 'window_position'
 
+    # Simfile list options
+
+    COLUMNS_TO_DISPLAY = 'columns_to_display'
+    COLUMN_WIDTHS = 'column_widths'
+    
     # Genre search options
     LASTFM_API_KEY = 'lastfm_api_key'
     DISCOGS_API_KEY = 'discogs_api_key'

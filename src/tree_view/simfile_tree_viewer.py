@@ -3,9 +3,11 @@ from PyQt6.QtCore import Qt, pyqtSlot, QPoint, QModelIndex
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QHeaderView, QMenu, QTreeView, QApplication, QMessageBox
 from src.controller import SimfileController
-from src.simfile_tree_model import SimfileTreeModel, TreeColumn
-
+from src.tree_view.simfile_tree_model import SimfileTreeModel, TreeColumn
+from src.tree_view.filter_proxy_model import SimfileFilterProxyModel
+from src.utils.config_manager import ConfigEnum, ConfigManager
 from src.utils.logger import get_logger
+
 logger = get_logger(__name__)
 
 class SimfileTree(QTreeView):
@@ -14,10 +16,17 @@ class SimfileTree(QTreeView):
     def __init__(self, controller: SimfileController, parent=None) -> None:
         super().__init__(parent)
         self.controller = controller
+        self.config = ConfigManager()
+
+        self._initialize_column_order()
         self._setup_ui()
 
     def refresh(self):
         self.tree_model.refresh()
+
+    def _initialize_column_order(self):
+        column_widths: dict[TreeColumn, int] = self.config.get(ConfigEnum.COLUMN_WIDTHS)
+        self.column_widths = column_widths
 
     def _setup_ui(self):
         self._setup_tree_view(self.controller)
@@ -27,7 +36,10 @@ class SimfileTree(QTreeView):
 
     def _setup_tree_view(self, controller:SimfileController):
         self.tree_model = SimfileTreeModel(controller)
-        self.setModel(self.tree_model)
+        self.proxy_model = SimfileFilterProxyModel()
+        self.proxy_model.setSourceModel(self.tree_model)
+        
+        self.setModel(self.proxy_model)
         self.setSelectionMode(QTreeView.SelectionMode.ExtendedSelection)
         self.setAlternatingRowColors(True)
         self.setSortingEnabled(True)
@@ -35,16 +47,19 @@ class SimfileTree(QTreeView):
     def _setup_header(self):
         header = self.header()
         if header is not None:
-            header.setSectionResizeMode(TreeColumn.TITLE, QHeaderView.ResizeMode.Interactive)
-            header.setSectionResizeMode(TreeColumn.SUBTITLE, QHeaderView.ResizeMode.Interactive)
-            header.setSectionResizeMode(TreeColumn.ARTIST, QHeaderView.ResizeMode.Interactive)
-            header.setSectionResizeMode(TreeColumn.GENRE, QHeaderView.ResizeMode.Interactive)
-            header.setSectionResizeMode(TreeColumn.CHARTS, QHeaderView.ResizeMode.ResizeToContents)
-            header.setSectionResizeMode(TreeColumn.FILETYPE, QHeaderView.ResizeMode.ResizeToContents)
-            header.resizeSection(TreeColumn.TITLE, 300)
-            header.resizeSection(TreeColumn.SUBTITLE, 200)
-            header.resizeSection(TreeColumn.ARTIST, 150)
-            header.resizeSection(TreeColumn.GENRE, 100)
+            for index, column in enumerate(self.tree_model.get_column_order()):
+                
+                if SimfileTreeModel.COLUMN_CONFIG[column].resizable:
+                    header.setSectionResizeMode(index, QHeaderView.ResizeMode.Interactive)
+                else:
+                    header.setSectionResizeMode(index, QHeaderView.ResizeMode.ResizeToContents)
+                
+                default_width = SimfileTreeModel.COLUMN_CONFIG[column].default_width
+                if self.column_widths and column in self.column_widths:
+                        header.resizeSection(index, self.column_widths[column])
+                elif default_width:
+                    header.resizeSection(index, default_width)
+
             header.setStretchLastSection(False)
     
     def _setup_selection_change(self):
@@ -63,7 +78,8 @@ class SimfileTree(QTreeView):
         simfile_ids = set()
         for index in indexes:
             if index.column() == 0:
-                simfile_id = self.tree_model.get_simfile_id_from_index(index)
+
+                simfile_id = self.proxy_model.get_simfile_id_from_index(index)
                 if simfile_id:
                     simfile_ids.add(simfile_id)
         
@@ -75,7 +91,7 @@ class SimfileTree(QTreeView):
         if not index.isValid():
             return
 
-        is_simfile = self.tree_model.is_simfile_index(index)
+        is_simfile = self.proxy_model.is_simfile_index(index)
 
         menu = None
         if is_simfile:
@@ -87,7 +103,7 @@ class SimfileTree(QTreeView):
                 menu.exec(viewport.mapToGlobal(position))
 
     def _build_simfile_context_menu(self, index: QModelIndex):
-        simfile = self.tree_model.get_simfile_from_index(index)
+        simfile = self.proxy_model.get_simfile_from_index(index)
         if simfile is None:
             return None
         

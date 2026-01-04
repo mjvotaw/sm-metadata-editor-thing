@@ -1,19 +1,24 @@
-from typing import Any, Optional
-from enum import IntEnum, auto
+from dataclasses import dataclass
+from enum import Enum, auto
+from typing import Any, Callable, Optional
+
 from PyQt6.QtCore import QAbstractItemModel, QModelIndex, Qt
+
 from src.controller import SimfileController
 from src.models import SimfileMetadata, PackInfo
 from src.field_registry import FieldRegistry
+from src.utils.config_manager import ConfigEnum, ConfigManager
+from src.utils.logger import get_logger
+logger = get_logger(__name__)
 
-
-class TreeColumn(IntEnum):
+class TreeColumn(Enum):
     """Column definitions for the tree view."""
-    TITLE = 0
-    SUBTITLE = auto()
-    ARTIST = auto()
-    GENRE = auto()
-    CHARTS = auto()
-    FILETYPE = auto()
+    TITLE = 'title'
+    SUBTITLE = 'subtitle'
+    ARTIST = 'artist'
+    GENRE = 'genre'
+    CHARTS = 'charts'
+    FILETYPE = 'filetype'
 
 
 class TreeItem:
@@ -66,6 +71,13 @@ class TreeItem:
         """Check if this item represents a simfile."""
         return isinstance(self.data, SimfileMetadata)
 
+@dataclass
+class TreeColumnConfig:
+    header: str
+    field: str
+    sort_key_fn: Callable[[Any], Any]
+    resizable: bool
+    default_width:Optional[int]
 
 class SimfileTreeModel(QAbstractItemModel):
     """
@@ -75,63 +87,82 @@ class SimfileTreeModel(QAbstractItemModel):
     """
     
     # Column configuration: maps TreeColumn enum to display properties
-    COLUMN_CONFIG = {
-        TreeColumn.TITLE: {
-            'header': 'Title',
-            'field': 'title',
-            'sort_key_fn': lambda sf: sf.title.lower(),
-        },
-        TreeColumn.SUBTITLE: {
-            'header': 'Subtitle',
-            'field': 'subtitle',
-            'sort_key_fn': lambda sf: (sf.subtitle or "").lower(),
-        },
-        TreeColumn.ARTIST: {
-            'header': 'Artist',
-            'field': 'artist',
-            'sort_key_fn': lambda sf: sf.artist.lower(),
-        },
-        TreeColumn.GENRE: {
-            'header': 'Genre',
-            'field': 'genre',
-            'sort_key_fn': lambda sf: sf.genre.lower(),
-        },
-        TreeColumn.CHARTS: {
-            'header': 'Chart Count',
-            'field': 'num_charts',
-            'sort_key_fn': lambda sf: sf.num_charts,
-        },
-        TreeColumn.FILETYPE: {
-            'header': 'File Type',
-            'field': 'file_type',
-            'sort_key_fn': lambda sf: sf.file_type,
-        },
+    COLUMN_CONFIG: dict[TreeColumn, TreeColumnConfig] = {
+        TreeColumn.TITLE: TreeColumnConfig(
+            header= 'Title',
+            field= 'title',
+            resizable=True,
+            default_width=300,
+            sort_key_fn= lambda sf: sf.title.lower(),
+        ),
+        TreeColumn.SUBTITLE: TreeColumnConfig(
+            header= 'Subtitle',
+            field= 'subtitle',
+            resizable=True,
+            default_width=200,
+            sort_key_fn= lambda sf: (sf.subtitle or "").lower(),
+        ),
+        TreeColumn.ARTIST: TreeColumnConfig(
+            header= 'Artist',
+            field= 'artist',
+            resizable=True,
+            default_width=150,
+            sort_key_fn= lambda sf: sf.artist.lower(),
+        ),
+        TreeColumn.GENRE: TreeColumnConfig(
+            header= 'Genre',
+            field= 'genre',
+            resizable=False,
+            default_width=None,
+            sort_key_fn= lambda sf: sf.genre.lower(),
+        ),
+        TreeColumn.CHARTS: TreeColumnConfig(
+            header= 'Chart Count',
+            field= 'num_charts',
+            resizable=False,
+            default_width=None,
+            sort_key_fn= lambda sf: sf.num_charts,
+        ),
+        TreeColumn.FILETYPE: TreeColumnConfig(
+            header= 'File Type',
+            field= 'file_type',
+            resizable=False,
+            default_width=None,
+            sort_key_fn= lambda sf: sf.file_type,
+        ),
     }
-    
-    @classmethod
-    def column_count(cls) -> int:
-        """Get total number of columns."""
-        return len(TreeColumn)
     
     @classmethod
     def get_header(cls, column: TreeColumn) -> str:
         """Get header text for a column."""
-        return cls.COLUMN_CONFIG[column]['header']
+        return cls.COLUMN_CONFIG[column].header
     
     @classmethod
     def get_field(cls, column: TreeColumn) -> str:
         """Get field name for a column."""
-        return cls.COLUMN_CONFIG[column]['field']
+        return cls.COLUMN_CONFIG[column].field
     
     @classmethod
     def get_sort_key_fn(cls, column: TreeColumn):
         """Get sort key function for a column."""
-        return cls.COLUMN_CONFIG[column]['sort_key_fn']
+        return cls.COLUMN_CONFIG[column].sort_key_fn
+    
+    @classmethod
+    def default_column_order(cls):
+        column_order = [
+                TreeColumn.TITLE,
+                TreeColumn.SUBTITLE,
+                TreeColumn.ARTIST,
+                TreeColumn.GENRE,
+                TreeColumn.CHARTS,
+                TreeColumn.FILETYPE
+            ]
+        return column_order
     
     def __init__(self, controller: SimfileController, parent=None):
         super().__init__(parent)
         self.controller = controller
-        
+
         # Create invisible root item (required for tree structure)
         self.root_item = TreeItem(None)
         
@@ -148,7 +179,7 @@ class SimfileTreeModel(QAbstractItemModel):
         This is called on initial load and can be called when the data
         structure changes significantly (like loading a new directory).
         """
-        
+        logger.debug(f"rebuilding tree")
         self.beginResetModel()
         self.root_item = TreeItem(None)
         packs = self.controller.get_all_packs()
@@ -166,6 +197,7 @@ class SimfileTreeModel(QAbstractItemModel):
         
         # Notify views that reset is complete
         self.endResetModel()
+        self.layoutChanged.emit()
     
     def on_simfiles_changed(self, affected_ids: list[str]):
         """
@@ -196,6 +228,20 @@ class SimfileTreeModel(QAbstractItemModel):
                         return self.createIndex(simfile_row, 0, simfile_item)
         
         return QModelIndex()
+    
+    def get_column_order(self):
+        # TODO: is this wildly inefficient, reading from ConfigManager
+        # constantly? 
+        # Maybe I need to add a "configChanged" signal from ConfigManager,
+        # and update stuff when that happens
+        column_order:list[TreeColumn] = self.controller.config.get(ConfigEnum.COLUMNS_TO_DISPLAY)
+        if column_order is None:
+            column_order = self.default_column_order()
+        return column_order
+
+    def column_count(self) -> int:
+        """Get total number of columns."""
+        return len(self.get_column_order())
     
     # ==================== Required QAbstractItemModel Methods ====================
     
@@ -259,6 +305,10 @@ class SimfileTreeModel(QAbstractItemModel):
         else:
             parent_item = parent.internalPointer()
         
+        if parent_item is None or not isinstance(parent_item, TreeItem):
+            print(f"{parent_item}")
+            return 0
+        
         return parent_item.child_count()
     
     def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
@@ -274,7 +324,10 @@ class SimfileTreeModel(QAbstractItemModel):
             return None
         
         item = index.internalPointer()
-        column = TreeColumn(index.column())
+        column_order = self.get_column_order()
+        if len(column_order) <= index.column():
+            return None
+        column = column_order[index.column()]
         
         # Display role - the text shown in the cell
         if role == Qt.ItemDataRole.DisplayRole:
@@ -322,7 +375,8 @@ class SimfileTreeModel(QAbstractItemModel):
         """Return header data for the given section (column)."""
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
             if 0 <= section < self.column_count():
-                column = TreeColumn(section)
+                column_order = self.get_column_order()                
+                column = column_order[section]
                 return self.get_header(column)
         
         return None
@@ -333,7 +387,8 @@ class SimfileTreeModel(QAbstractItemModel):
         
         # Convert column index to TreeColumn enum
         try:
-            col_enum = TreeColumn(column)
+            column_order = self.get_column_order()
+            col_enum = column_order[column]
         except ValueError:
             # Invalid column
             self.layoutChanged.emit()
