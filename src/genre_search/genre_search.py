@@ -77,8 +77,8 @@ class GenreSearch:
         self._save_cache()
         return genres
 
-    def normalize_genre(self, genre: str):
-        resolved_genre = self.wl.resolve_genre(genre)
+    def normalize_genres(self, genres: list[str]):
+        resolved_genre = self.wl.resolve_genre_strs(genres)
         if len(resolved_genre) == 0:
             return None
         return resolved_genre

@@ -1,7 +1,7 @@
 from typing import Set, Tuple
 from PyQt6.QtCore import pyqtSignal, QThread
 from pathlib import Path
-from mutagen import File
+from mutagen._file import File
 from src.models import SimfileMetadata
 from src.utils.app_paths import AppPaths
 from src.utils.config_manager import ConfigManager, ConfigEnum
@@ -101,8 +101,8 @@ class GenreSearchThread(QThread):
                         else:
                             result = result + audio_result
                 
-                if audio_metadata.genre:
-                    maybe_genre = self.genre_search.normalize_genre(audio_metadata.genre)
+                if audio_metadata.genres:
+                    maybe_genre = self.genre_search.normalize_genres(audio_metadata.genres)
                     if maybe_genre:
                         result += maybe_genre
 
