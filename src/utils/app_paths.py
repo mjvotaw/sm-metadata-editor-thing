@@ -5,6 +5,18 @@ class AppPaths:
 
     APP_NAME = "smMetadataEditorThing"
     DEV_MODE = False
+    base_path = None
+
+    @classmethod
+    def set_base_dir(cls, app_data_dir: str):
+        base_path = Path(app_data_dir)
+        if not base_path.exists():
+            raise ValueError(f"app_data_dir {base_path} does not exist!")
+        if base_path.is_file():
+            raise ValueError(f"app_data_dir {base_path} needs to be a directory")
+        cls.base_path = base_path
+        
+        
     @classmethod
     def log_dir(cls):
         return cls.ensure_app_data_subdir("logs")
@@ -21,8 +33,8 @@ class AppPaths:
     
     @classmethod
     def base_app_data_path(cls):
-        if cls.DEV_MODE:
-            path = (Path.cwd() / cls.APP_NAME).resolve()
+        if cls.base_path:
+            path = (cls.base_path / cls.APP_NAME).resolve()
             path.mkdir(parents=True, exist_ok=True)
             return path
         else:

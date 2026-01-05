@@ -1,3 +1,4 @@
+import argparse
 import sys
 from pathlib import Path
 from typing import Optional
@@ -30,8 +31,12 @@ logger = get_logger(__name__)
 class MainWindow(QMainWindow):
     """Main application window."""
     
-    def __init__(self):
+    def __init__(self, args: argparse.Namespace):
         super().__init__()
+
+        if args.app_data_dir:
+            AppPaths.set_base_dir(args.app_data_dir)
+
         self.config = ConfigManager()
         self.setup_logging()
 
@@ -507,11 +512,24 @@ class MainWindow(QMainWindow):
             self.tree_view.proxy_model.set_search_criteria("", None, False)
             self.tree_view.proxy_model.set_filter_enabled(False)
 
+
+def get_args():
+    parser = argparse.ArgumentParser(
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    parser.add_argument(
+        "--app-data-dir", 
+        help="Specify directory for the application to save app data (config files, caches). By default, the application will use whatever is standard for your OS",
+        type=str)
+    args = parser.parse_args()
+    return args
+
 def main():
     """Main entry point."""
     app = QApplication(sys.argv)
-    
-    window = MainWindow()
+    args = get_args()
+    window = MainWindow(args)
     window.show()
     sys.exit(app.exec())
 
