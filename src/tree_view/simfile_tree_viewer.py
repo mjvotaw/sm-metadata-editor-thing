@@ -43,6 +43,8 @@ class SimfileTree(QTreeView):
         self.setSelectionMode(QTreeView.SelectionMode.ExtendedSelection)
         self.setAlternatingRowColors(True)
         self.setSortingEnabled(True)
+        self.sortByColumn(0, Qt.SortOrder.AscendingOrder)
+
     
     def _setup_header(self):
         header = self.header()

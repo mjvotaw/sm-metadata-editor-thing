@@ -225,7 +225,7 @@ class FieldRegistry:
     ALL_FIELDS = CHART_FIELDS + IMAGE_FIELDS + AUDIO_FIELDS
 
     FIELD_GROUPS: list[FieldGroup] = [
-        FieldGroup(display_name="Chart Info", fields=CHART_FIELDS),
+        FieldGroup(display_name="Simfile Details", fields=CHART_FIELDS),
         FieldGroup(display_name="Images and Videos", fields=IMAGE_FIELDS),
         FieldGroup(display_name="Song Preview", fields=AUDIO_FIELDS)
     ]

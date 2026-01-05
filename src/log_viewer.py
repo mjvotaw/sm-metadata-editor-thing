@@ -14,7 +14,6 @@ from src.utils.logger import LogHandler
 class LogViewerDialog(QDialog):
     """Dialog for viewing application logs."""
     
-    # Color mapping for log levels
     LEVEL_COLORS = {
         'DEBUG': QColor(100, 100, 100),
         'INFO': QColor(0, 0, 0),

@@ -33,9 +33,9 @@ class SimfileLoader:
                 # and its parent is the pack folder
                 song_dir = path.parent
                 pack_dir = song_dir.parent if song_dir.parent != root_path else root_path
-                pack_name = pack_dir.name if pack_dir != root_path else "Default Pack"
+                pack_name = pack_dir.relative_to(root_path)
                 
-                simfiles.append((path, pack_name))
+                simfiles.append((path, str(pack_name)))
         
         logger.debug(f"Found {len(simfiles)} simfiles")
         return simfiles
