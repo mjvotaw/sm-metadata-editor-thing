@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout
 from src.controller import SimfileController
 from src.tree_view.simfile_tree_viewer import SimfileTree
 from src.tree_view.simfile_tree_model import TreeColumn
-from src.find_toolbar import FindToolbar
+from src.tree_view.find_toolbar import FindToolbar
 
 class TreeViewContainer(QWidget):
 
