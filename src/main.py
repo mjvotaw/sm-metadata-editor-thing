@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QProgressBar
 )
 from PyQt6.QtCore import Qt, pyqtSlot
-from PyQt6.QtGui import QAction
+from PyQt6.QtGui import QAction, QMoveEvent, QResizeEvent
 
 from src.utils.config_manager import ConfigManager, ConfigEnum
 from src.utils.logger import LogHandler, setup_logging, teardown_logging, get_logger
@@ -18,6 +18,7 @@ from src.utils.app_paths import AppPaths
 from src.controller import SimfileController
 from src.simfile_editor_panel import SimfileEditorPanel
 from src.tree_view.simfile_tree_viewer import SimfileTree
+from src.tree_view.tree_view_container import TreeViewContainer
 from src.tree_view.simfile_tree_model import TreeColumn
 from src.loader_thread import LoaderThread
 from src.find_toolbar import FindToolbar
@@ -25,17 +26,15 @@ from src.find_toolbar import FindToolbar
 from src.log_viewer import LogViewerDialog
 from src.settings_dialog import SettingsDialog
 
+from src.status_display import StatusDisplay
 
 logger = get_logger(__name__)
 
 class MainWindow(QMainWindow):
     """Main application window."""
     
-    def __init__(self, args: argparse.Namespace):
+    def __init__(self):
         super().__init__()
-
-        if args.app_data_dir:
-            AppPaths.set_base_dir(args.app_data_dir)
 
         self.config = ConfigManager()
         self.setup_logging()
@@ -79,34 +78,23 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         
         main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(0,0,0,0)
+
         central.setLayout(main_layout)
         splitter = QSplitter(Qt.Orientation.Horizontal)
-
-        self.tree_view = SimfileTree(self.controller)
+        splitter.setContentsMargins(0,0,0,0)
+        self.tree_view = TreeViewContainer(self.controller)
         splitter.addWidget(self.tree_view)
-        
+
         self.editor_panel = SimfileEditorPanel(self.controller)
         splitter.addWidget(self.editor_panel)
         splitter.setSizes([700,300])
-        
-        self.setup_find_toolbar()
-        main_layout.addWidget(self.find_toolbar)
-
         main_layout.addWidget(splitter)
 
-        self.status_bar = QStatusBar()
+        self.status_bar =  StatusDisplay(self)
+        self.status_bar.cancel_requested.connect(self.on_cancel_loading)
         self.setStatusBar(self.status_bar)
-        
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setVisible(False)
-        self.progress_bar.setMaximumWidth(300)
-        self.status_bar.addPermanentWidget(self.progress_bar)
-        
-        self.cancel_load_button = QPushButton("Stop Loading")
-        self.cancel_load_button.setVisible(False)
-        self.cancel_load_button.clicked.connect(self.on_cancel_loading)
-        self.status_bar.addPermanentWidget(self.cancel_load_button)
-        
+    
         self.showStatusMessage("Ready")
     
     def create_menu_actions(self):
@@ -177,18 +165,6 @@ class MainWindow(QMainWindow):
             actions_menu = menubar.addMenu("Actions")
             if actions_menu:
                 actions_menu.addAction(self.normalize_genre_action)
-    
-    def setup_find_toolbar(self):
-        self.find_toolbar = FindToolbar()
-        self.find_toolbar.setFixedHeight(40)
-        self.find_toolbar.setVisible(False)
-
-        self.find_toolbar.searchChanged.connect(self.on_search_changed)
-        self.find_toolbar.filterToggled.connect(self.on_filter_toggled)
-        self.find_toolbar.nextRequested.connect(self.on_next_result)
-        self.find_toolbar.prevRequested.connect(self.on_prev_result)
-        self.find_toolbar.closed.connect(self.on_find_closed)
-
 
     @pyqtSlot()
     def on_load_clicked(self):
@@ -210,15 +186,14 @@ class MainWindow(QMainWindow):
         """Handle cancel loading button."""
         if self.loader_thread and self.loader_thread.isRunning():
             self.showStatusMessage("Cancelling load...")
-            self.cancel_load_button.setEnabled(False)
+            self.status_bar.hide_loading()
             self.loader_thread.cancel()
     
     @pyqtSlot(int, int, str)
     def on_loading_progress(self, current: int, total: int, pack_name: str):
-        """Handle progress updates from loader thread."""
-        self.progress_bar.setMaximum(total)
-        self.progress_bar.setValue(current)
-        self.showStatusMessage(f"Loading pack {current}/{total}: {pack_name}")
+        
+        self.status_bar.show_loading_message(current, total, pack_name)
+        
     
     @pyqtSlot(str)
     def on_pack_loaded(self, pack_name: str):
@@ -235,10 +210,8 @@ class MainWindow(QMainWindow):
 
         was_cancelled = self.loader_thread and self.loader_thread._cancelled
         
-        self.progress_bar.setVisible(False)
-        self.cancel_load_button.setVisible(False)
-        self.cancel_load_button.setEnabled(True)
-        
+        self.status_bar.hide_loading()
+
         self.load_action.setEnabled(True)
         self.tree_view.refresh()
         
@@ -259,10 +232,7 @@ class MainWindow(QMainWindow):
         """Load simfiles from a directory asynchronously."""
 
         self.load_action.setEnabled(False)
-        
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setValue(0)
-        self.cancel_load_button.setVisible(True)
+        self.status_bar.show_loading()
         self.showStatusMessage("Preparing to load...")
         
         self.loader_thread = LoaderThread(self.controller, directory)
@@ -419,6 +389,15 @@ class MainWindow(QMainWindow):
         self.teardown_logging()
         event.accept()
 
+    def resizeEvent(self, event: QResizeEvent | None):
+
+        self.config.set(ConfigEnum.WINDOW_SIZE, (self.geometry().width(), self.geometry().height()))
+        super().resizeEvent(event)
+
+    def moveEvent(self, event: QMoveEvent | None):
+        self.config.set(ConfigEnum.WINDOW_POSITION, ( self.geometry().top(), self.geometry().left()))
+        super().moveEvent(event)
+
     def showStatusMessage(self, msg):
         logger.info(msg)
         self.status_bar.showMessage(msg)
@@ -427,90 +406,7 @@ class MainWindow(QMainWindow):
     @pyqtSlot()
     def on_show_find(self):
         """Show the find toolbar."""
-        self.find_toolbar.show_and_focus()
-
-    @pyqtSlot(bool)
-    def on_filter_toggled(self, enabled: bool):
-        """Handle filter checkbox toggle."""
-        if hasattr(self.tree_view, 'proxy_model'):
-            self.tree_view.proxy_model.set_filter_enabled(enabled)
-            
-            # Update match count (filtering might have changed visible results)
-            matches = self.tree_view.proxy_model.get_matching_rows()
-            self.find_toolbar.update_results(len(matches))
-            self.current_matches = matches
-
-    @pyqtSlot(str, object, bool, bool)
-    def on_search_changed(self, text: str, field: Optional[TreeColumn], use_regex: bool, case_sensitive: bool):
-        """Handle search criteria changes."""
-        if hasattr(self.tree_view, 'proxy_model'):
-            self.tree_view.proxy_model.set_search_criteria(text, field, use_regex, case_sensitive)
-            
-            # Don't store matches - just update the count
-            match_count = len(self.tree_view.proxy_model.get_matching_rows())
-            self.find_toolbar.update_results(match_count)
-            
-            # Reset navigation position
-            self.find_toolbar.current_result_index = -1
-
-    @pyqtSlot()
-    def on_next_result(self):
-        """Navigate to next search result."""
-        # Compute matches fresh each time
-        matches = self._get_current_matches()
-        if not matches:
-            return
-        
-        current_index = self.find_toolbar.current_result_index
-        next_index = (current_index + 1) % len(matches)
-        self._select_result_at_index(next_index, matches)
-
-    @pyqtSlot()
-    def on_prev_result(self):
-        """Navigate to previous search result."""
-        matches = self._get_current_matches()
-        if not matches:
-            return
-        
-        current_index = self.find_toolbar.current_result_index
-        prev_index = (current_index - 1) % len(matches)
-        self._select_result_at_index(prev_index, matches)
-
-    def _get_current_matches(self) -> list:
-        """Get fresh list of matching indexes."""
-        if hasattr(self.tree_view, 'proxy_model'):
-            return self.tree_view.proxy_model.get_matching_rows()
-        return []
-
-    def _select_result_at_index(self, index: int, matches: list):
-        """Select and scroll to a specific result."""
-        if not matches or index < 0 or index >= len(matches):
-            return
-        
-        match_index = matches[index]
-        
-        if not match_index.isValid():
-            return
-        
-        # Select the row
-        selection_model = self.tree_view.selectionModel()
-        if selection_model:
-            selection_model.clearSelection()
-            selection_model.select(
-                match_index,
-                selection_model.SelectionFlag.Select | selection_model.SelectionFlag.Rows
-            )
-            
-            self.tree_view.scrollTo(match_index)
-            self.find_toolbar.update_results(len(matches), index)
-    
-    @pyqtSlot()
-    def on_find_closed(self):
-        """Handle find toolbar being closed."""
-        # Clear any filtering
-        if hasattr(self.tree_view, 'proxy_model'):
-            self.tree_view.proxy_model.set_search_criteria("", None, False)
-            self.tree_view.proxy_model.set_filter_enabled(False)
+        self.tree_view.show_find()
 
 
 def get_args():
@@ -529,7 +425,10 @@ def main():
     """Main entry point."""
     app = QApplication(sys.argv)
     args = get_args()
-    window = MainWindow(args)
+    if args.app_data_dir:
+        AppPaths.set_base_dir(args.app_data_dir)
+
+    window = MainWindow()
     window.show()
     sys.exit(app.exec())
 

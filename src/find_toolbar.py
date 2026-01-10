@@ -2,7 +2,7 @@ import re
 from typing import Optional
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QComboBox, QLineEdit, QPushButton,
-    QLabel, QCheckBox, QToolButton
+    QLabel, QToolButton 
 )
 from PyQt6.QtCore import pyqtSignal, pyqtSlot, Qt
 from PyQt6.QtGui import QKeySequence, QShortcut
@@ -42,7 +42,9 @@ class FindToolbar(QWidget):
     def setup_ui(self):
         """Build the toolbar UI."""
         layout = QHBoxLayout()
-        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(3)
+
+        layout.setContentsMargins(0,0,0,0)
         
         # Close button
         self.close_button = QToolButton()
@@ -73,11 +75,14 @@ class FindToolbar(QWidget):
         layout.addWidget(self.search_input)
         
         # Regex checkbox
-        self.regex_checkbox = QCheckBox("Regex")
-        self.regex_checkbox.setToolTip("Use regular expression matching")
+        self.regex_checkbox = QPushButton(".*")
+        self.regex_checkbox.setCheckable(True)
+        self.regex_checkbox.setToolTip("Use regular expressions")
         layout.addWidget(self.regex_checkbox)
         
-        self.case_checkbox = QCheckBox("Case Sensitive")
+        self.case_checkbox = QPushButton("aA")
+        self.case_checkbox.setCheckable(True)
+        self.case_checkbox.setToolTip("Match case")
         layout.addWidget(self.case_checkbox)
 
         # Results count label
@@ -86,19 +91,20 @@ class FindToolbar(QWidget):
         layout.addWidget(self.results_label)
         
         # Previous button
-        self.prev_button = QPushButton("◀ Prev")
+        self.prev_button = QPushButton("▲")
         self.prev_button.setToolTip("Previous result (Shift+F3)")
         self.prev_button.setEnabled(False)
         layout.addWidget(self.prev_button)
         
         # Next button
-        self.next_button = QPushButton("Next ▶")
+        self.next_button = QPushButton("▼")
         self.next_button.setToolTip("Next result (F3)")
         self.next_button.setEnabled(False)
         layout.addWidget(self.next_button)
         
         # Filter checkbox
-        self.filter_checkbox = QCheckBox("Show only matches")
+        self.filter_checkbox = QPushButton("Show only matches")
+        self.filter_checkbox.setCheckable(True)
         self.filter_checkbox.setToolTip("Hide non-matching simfiles from tree")
         layout.addWidget(self.filter_checkbox)
         

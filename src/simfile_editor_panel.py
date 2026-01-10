@@ -35,7 +35,7 @@ class SimfileEditorPanel(QWidget):
     def setup_ui(self):
         """Build the UI dynamically from the field registry."""
         layout = QVBoxLayout()
-        
+        layout.setContentsMargins(0,0,0,0)
         scroll, scroll_layout = self._create_scroll_area()
         
         for field_group in FieldRegistry.FIELD_GROUPS:

@@ -1,8 +1,3 @@
-"""
-Main controller for simfile editing operations.
-This is the primary interface between the GUI and the business logic.
-"""
-
 from typing import Any, Dict, List, Optional, Set, Callable
 from pathlib import Path
 from collections import defaultdict
@@ -39,24 +34,6 @@ class SimfileController:
         self._selection_callbacks: List[Callable] = []
     
     # ==================== Loading and Initialization ====================
-    
-    def load_from_directory(self, directory: Path) -> int:
-        """
-        Load all simfiles from a directory structure.
-        Returns the number of simfiles loaded.
-        """
-        if not directory.exists() or not directory.is_dir():
-            return 0
-        
-        # Find all simfiles
-        simfile_paths = SimfileLoader.find_simfiles_in_directory(directory)
-        
-        loaded_count = 0
-        for file_path, pack_name in simfile_paths:
-            if self._load_from_file_path(file_path, pack_name):
-                loaded_count += 1
-        
-        return loaded_count
     
     def _load_from_file_path(self, file_path: Path, pack_name: str):
         parsed_simfile = SimfileLoader.load_simfile(file_path)
