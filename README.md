@@ -27,9 +27,12 @@ You can run it by calling `sm-metadata-editor`
 
 ### Todos:
 - song preview playback on linux is broken
-- test stuff on Windows
+- Make sections in editor panel collapsible
+- Add section for modifying chart details
+- Add fields for things like `#DISPLAYBPM`
 - fix styling issues when dark theme is enabled by OS
 - figure out a way to set preferences for genre selection
+- ☑️ test stuff on Windows
 
 ### Got other ideas for what this should do?
 
